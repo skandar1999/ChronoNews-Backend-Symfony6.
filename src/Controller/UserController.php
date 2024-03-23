@@ -31,61 +31,74 @@ class UserController extends AbstractController
     
     
     //Création d'un utilisateur
-    #[Route('/userCreate', name: 'user_create', methods:'POST')]
-public function userCreate(Request $request): Response
-{
-
-   $data=json_decode($request->getContent(),true);
-
-   $email=$data['email'];
-
-  
-   $username=$data['username'];
-   $password=$data['password'];
-   $mobile=$data['mobile'];
-
-   //Vérifier si l'email existe déjà
-   $email_exist=$this->user->findOneByEmail($email);
-
-   if($email_exist)
-   {
-      return new JsonResponse([
-         'status'=>false,
-         'message'=>'Email existe deja'
-      ]);
-   }    
-
-   $username_exist=$this->user->findOneByUsername($username);
-
-   if($username_exist)
-   {
-      return new JsonResponse([
-         'status'=>false,
-         'message'=>'Nom utlilisateur existe déjà, veuillez le changer'
-      ]);
-   }
-   else
-   {
-      $user= new User();
-
-      $user->setEmail($email)
+    #[Route('/userCreate', name: 'user_create', methods: ['POST'])]
+    public function userCreate(Request $request): Response
+    {
+        $data = json_decode($request->getContent(), true);
+    
+        $email = $data['email'];
+        $username = $data['username'];
+        $password = $data['password'];
+        $mobile = $data['mobile'];
+    
+        // Define validation rules
+        $minLength = 8;
+        $containsNumber = preg_match('/\d/', $password);
+    
+        // Check if password meets all validation rules
+        $isPasswordValid = strlen($password) >= $minLength && $containsNumber;
+    
+        if (!$isPasswordValid) {
+            return new JsonResponse([
+                'status' => false,
+                'message' => 'Invalid Password'
+            ]);
+        }
+    
+        //Vérifier si l'email existe déjà
+        $emailExist = $this->user->findOneByEmail($email);
+    
+        if ($emailExist) {
+            return new JsonResponse([
+                'status' => false,
+                'message' => 'Email Already Exists'
+            ]);
+        }
+    
+        $usernameExist = $this->user->findOneByUsername($username);
+    
+        if ($usernameExist) {
+            return new JsonResponse([
+                'status' => false,
+                'message' => 'Username Already Exists'
+            ]);
+        }
+    
+        if (strlen($mobile) < 8 || strlen($mobile) > 15 || !ctype_digit($mobile)) {
+            return new JsonResponse([
+                'status' => false,
+                'message' => 'Please check your phone number'
+            ]);
+        }
+    
+        $user = new User();
+    
+        $user->setEmail($email)
             ->setUsername($username)
             ->setMobile($mobile)
             ->setPassword(sha1($password))
             ->setImage('user.jpg')
             ->setRoles(['ROLE_USER']);
-
-     $this->manager->persist($user);
-     $this->manager->flush();
-
-     return new JsonResponse([
-         'status'=>true,
-         'message'=>'utilisateur created with succes'
-     ]);
-   }
-}
-
-
+    
+        $this->manager->persist($user);
+        $this->manager->flush();
+    
+        return new JsonResponse([
+            'status' => true,
+            'message' => 'User created successfully'
+        ]);
+    }
+    
 
      //Liste des utilisateurs
     #[Route('/getAllUsers', name: 'get_allusers', methods:'GET')]

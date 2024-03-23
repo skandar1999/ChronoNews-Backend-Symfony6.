@@ -31,8 +31,11 @@ class ContactController extends AbstractController
         if (!isset($data['emailUser'])) {
             return new JsonResponse(['error' => 'Missing emailUser'], 400);
         }
-    
-        // Create a new Contact object and set its properties
+        
+        // Check if the emailUser key is set
+        if (!isset($data['emailUser'])) {
+            return new JsonResponse(['error' => 'Missing emailUser'], 400);
+        }
         $contact = new Contact();
         $contact->setEmailUser($data['emailUser']);
         $contact->setDate(new \DateTime());

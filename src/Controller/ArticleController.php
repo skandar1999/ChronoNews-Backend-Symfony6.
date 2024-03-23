@@ -33,17 +33,17 @@ class ArticleController extends AbstractController
         $categorie = $request->request->get('categorie');
 
         // Handle file upload
-        $imageFile = $request->files->get('image');
+        $imagePost = $request->files->get('image');
 
-        if ($imageFile instanceof UploadedFile) {
-            $newFilename = md5(uniqid()) . '.' . $imageFile->guessExtension();
-            $imageFile->move(
+        if ($imagePost instanceof UploadedFile) {
+            $newArtilcename = md5(uniqid()) . '.' . $imagePost->guessExtension();
+            $imagePost->move(
                 $this->getParameter('uploads_directory'),
-                $newFilename
+                $newArtilcename
             );
 
             // Set the image property if file is uploaded
-            $this->article->setImage($newFilename);
+            $this->article->setImage($newArtilcename);
         }
 
         // Validate required fields
@@ -63,8 +63,7 @@ class ArticleController extends AbstractController
             $this->manager->persist($this->article);
             $this->manager->flush();
 
-            // Include the uploaded file in the response
-            $fileUrl = $request->getSchemeAndHttpHost() . '/ArticleImages/' . $newFilename;
+            $fileUrl = $request->getSchemeAndHttpHost() . '/ArticleImages/' . $newArtilcename;
 
             return $this->json([
                 'status' => true,
@@ -135,6 +134,59 @@ class ArticleController extends AbstractController
         } catch (\Exception $e) {
             return $this->json(['message' => 'An error occurred while deleting the article', 'error' => $e->getMessage()], 500);
         }
+    }
+
+    #[Route('/allArticles', name: 'all_articles', methods: ['GET'])]
+    public function getAllArticles(ManagerRegistry $doctrine): JsonResponse
+    {
+
+        $entityManager = $doctrine->getManager();
+        $articleRepository = $entityManager->getRepository(Article::class);
+        $article = $articleRepository->findAll();
+        
+
+        $responseData = [];
+        foreach ($article as $article) {
+            $responseData[] = [
+                'id' => $article->getId(),
+                'titre' => $article->getTitre(),
+                'contenu' => $article->getContenu(),
+                'publish_date' => $article->getPublishDate()->format('Y-m-d H:i:s'),
+                'image' => $article->getImage(),
+                'nb_likes' => $article->getNbLikes(),
+                'nb_dislikes' => $article->getNbDisLikes(),
+                'nb_comments' => $article->getNbComments(),
+                'categorie' => $article->getCatégorie(),
+            ];
+        }
+
+        return $this->json($responseData);
+    }
+
+    #[Route('/getArticle/{id}', name: 'get_article', methods: ['GET'])]
+    public function getArticle(ManagerRegistry $doctrine, int $id): JsonResponse
+    {
+        $entityManager = $doctrine->getManager();
+        $articleRepository = $entityManager->getRepository(Article::class);
+        $article = $articleRepository->find($id);
+
+        if (!$article) {
+            return $this->json(['message' => 'Article not found'], 404);
+        }
+
+        $responseData = [
+            'id' => $article->getId(),
+            'titre' => $article->getTitre(),
+            'contenu' => $article->getContenu(),
+            'publish_date' => $article->getPublishDate()->format('Y-m-d H:i:s'),
+            'image' => $article->getImage(),
+            'nb_likes' => $article->getNbLikes(),
+            'nb_dislikes' => $article->getNbDisLikes(),
+            'nb_comments' => $article->getNbComments(),
+            'categorie' => $article->getCatégorie(),
+        ];
+
+        return $this->json($responseData);
     }
     
 }
