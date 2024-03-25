@@ -15,91 +15,93 @@ use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 class ContactController extends AbstractController
 {
     private $entityManager;
+    private $manager;
+    private $contact;
 
-    public function __construct(EntityManagerInterface $entityManager)
+    public function __construct(EntityManagerInterface $manager, EntityManagerInterface $entityManager)
     {
         $this->entityManager = $entityManager;
+        $this->manager = $manager;
+
     }
 
-    #[Route('/contactadmin', name: 'contact', methods:'POST')]
-    public function contact(Request $request): JsonResponse
-    {  
-        // Get the data from the request body
+    #[Route('/contactadmin', name: 'contact', methods: ['POST'])]
+    public function contact(Request $request): Response
+    {
         $data = json_decode($request->getContent(), true);
-    
-        // Check if the emailUser key is set
-        if (!isset($data['emailUser'])) {
-            return new JsonResponse(['error' => 'Missing emailUser'], 400);
+
+        // Check if the required fields are provided
+        if (!isset($data['emailUser']) || !isset($data['userPhone']) || !isset($data['description'])) {
+            return new JsonResponse([
+                'status' => false,
+                'message' => 'Email, userPhone, and description are required.',
+            ], Response::HTTP_BAD_REQUEST);
         }
-        
-        // Check if the emailUser key is set
-        if (!isset($data['emailUser'])) {
-            return new JsonResponse(['error' => 'Missing emailUser'], 400);
+
+        // Extract data from request
+        $emailUser = $data['emailUser'];
+        $userPhone = $data['userPhone'];
+        $description = $data['description'];
+
+        try {
+            // Create a new Contact object
+            $contact = new Contact();
+            $contact->setEmailUser($emailUser)
+                ->setUserPhone($userPhone)
+                ->setDescription($description)
+                ->setDate(new \DateTime());
+
+            // Persist the Contact object
+            $this->manager->persist($this->contact);
+            $this->manager->flush();
+
+            return $this->json([
+                'status' => true,
+                'message' => 'Article created successfully.',
+            ]);
+        } catch (\Exception $e) {
+            return $this->json([
+                'status' => false,
+                'message' => 'An error occurred while creating the article. ' . $e->getMessage(),
+            ], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
-        $contact = new Contact();
-        $contact->setEmailUser($data['emailUser']);
-        $contact->setDate(new \DateTime());
-    
-        // Check if the description key is set
-        if (isset($data['description'])) {
-            $contact->setDescription($data['description']);
-        }
-    
-        // Persist the contact object to the database
-        $this->entityManager->persist($contact);
-        $this->entityManager->flush(); 
-    
-        // Return a success message
-        return new JsonResponse(['message' => 'Nous avons bien reçu votre message !']);
     }
+    #[Route('/getallmessages', name: 'get_all_messages', methods: ['GET'])]
+    public function getAllMessages(ContactRepository $contactRepository): JsonResponse
+    {
+        $contacts = $contactRepository->findAll();
+        $response = [];
+        foreach ($contacts as $contact) {
+            $response[] = [
+                'id' => $contact->getId(),
+                'emailUser' => $contact->getEmailUser(),
+                'description' => $contact->getDescription(),
+                'phoneUser' => $contact->getUserPhone(),
+                'date' => $contact->getDate() ? $contact->getDate()->format('d-m-y H:i') : null,
+                'status' => $contact->getStatus(),
+            ];
+        }
     
-
-#[Route('/getallmessages', name: 'get_all_messages', methods:'GET')]
-public function getAllMessages(ContactRepository $contactRepository): JsonResponse
-{
-    $startDate = new \DateTime('-3 days'); // Get the date x days ago
-    $endDate = new \DateTime(); // Get the current date
-
-    $contacts = $contactRepository->createQueryBuilder('c')
-        ->andWhere('c.date BETWEEN :startDate AND :endDate')
-        ->setParameter('startDate', $startDate)
-        ->setParameter('endDate', $endDate)
-        ->orderBy('c.date', 'DESC')
-        ->getQuery()
-        ->getResult();
-
-    $response = [];
-    foreach ($contacts as $contact) {
-        $response[] = [
-            'id' => $contact->getId(),
-            'emailUser' => $contact->getEmailUser(),
-            'description' => $contact->getDescription(),
-            'date' => $contact->getDate() ? $contact->getDate()->format('d-m-y H:i') : null,
-            'status' => $contact->getStatus(),
-        ];
-    }
-
-    return new JsonResponse($response, 200);
-}
-
-
-
-
-
-#[Route('/deleteMessage/{id}', name: 'delete-message', methods:'DELETE')]
-public function delete( int $id , EntityManagerInterface $entityManager): Response
-{
-    $message  = $entityManager->getRepository(Contact::class)->find($id);
-
-    if (!$message) {
-        return $this->json('No message found for id' . $id, 404);
+        return new JsonResponse($response, 200);
     }
 
-    $entityManager->remove($message);
-    $entityManager->flush();
 
-    return $this->json('Deleted a messages successfully with id ' . $id);
-}
+
+
+    #[Route('/deleteMessage/{id}', name: 'delete-message', methods:'DELETE')]
+    public function delete( int $id , EntityManagerInterface $entityManager): Response
+    {
+        $message  = $entityManager->getRepository(Contact::class)->find($id);
+    
+        if (!$message) {
+            return $this->json('No message found for id' . $id, 404);
+        }
+    
+        $entityManager->remove($message);
+        $entityManager->flush();
+    
+        return $this->json('Deleted a messages successfully with id ' . $id);
+    }
 
 
 
@@ -113,10 +115,11 @@ public function update(int $id , EntityManagerInterface $entityManager, Contact 
         return $this->json('No message found for id' . $id, 404);
     }
     $contact->setStatus(true);
+
     $entityManager->flush();
+
     return $this->json($contact);
 }
-
 
 
 

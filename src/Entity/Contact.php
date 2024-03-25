@@ -27,6 +27,9 @@ class Contact
     #[ORM\Column(type: 'datetime')]
     private ?DateTimeInterface $date = null;
 
+    #[ORM\Column(length: 14)]
+    private ?string $userPhone = null;
+
 
     public function getId(): ?int
     {
@@ -78,6 +81,18 @@ public function getStatus(): bool
 public function setStatus(bool $status): self
 {
     $this->status = $status;
+    return $this;
+}
+
+public function getUserPhone(): ?string
+{
+    return $this->userPhone;
+}
+
+public function setUserPhone(string $userPhone): static
+{
+    $this->userPhone = $userPhone;
+
     return $this;
 }
 
